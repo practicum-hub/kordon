@@ -1,0 +1,26 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${workspaceFolder}/.vscode/browse.vc.db",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/antondeulia/Projects/ROS2/aeroops_ws/install/aeroops_px4/include/**",
+        "/home/antondeulia/Projects/ROS2/aeroops_ws/install/px4_msgs/include/**",
+        "/home/antondeulia/Projects/ROS2/aeroops_ws/install/aeroops_perception/include/**",
+        "/home/antondeulia/Projects/ROS2/aeroops_ws/install/aeroops_core/include/**",
+        "/home/antondeulia/Projects/ROS2/aeroops_ws/install/aeroops_interfaces/include/**",
+        "/opt/ros/jazzy/include/**",
+        "/home/antondeulia/kordon_ws/src/kordon_c2_agent/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ros2",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}

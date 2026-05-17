@@ -25,6 +25,9 @@
     <!-- Lidar -->
     <xacro:include filename="lidar.xacro" />
 
+    <!-- GPS -->
+    <xacro:include filename="gps.xacro" />
+
     <!-- Base -->
     <link name="$(arg prefix)base_footprint" />
 

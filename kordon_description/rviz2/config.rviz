@@ -6,7 +6,6 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /LaserScan1
       Splitter Ratio: 0.5
     Tree Height: 463
   - Class: rviz_common/Selection
@@ -48,6 +47,74 @@ Visualization Manager:
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
       Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Filter (blacklist): ""
+      Filter (whitelist): ""
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+        kordon001/base_footprint:
+          Value: true
+        kordon001/base_link:
+          Value: true
+        kordon001/caster_wheel_link:
+          Value: true
+        kordon001/left_wheel_link:
+          Value: true
+        kordon001/lidar_link:
+          Value: true
+        kordon001/odom:
+          Value: true
+        kordon001/right_wheel_link:
+          Value: true
+        kordon002/base_footprint:
+          Value: true
+        kordon002/base_link:
+          Value: true
+        kordon002/caster_wheel_link:
+          Value: true
+        kordon002/left_wheel_link:
+          Value: true
+        kordon002/lidar_link:
+          Value: true
+        kordon002/odom:
+          Value: true
+        kordon002/right_wheel_link:
+          Value: true
+        map:
+          Value: true
+      Marker Scale: 1
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: false
+      Tree:
+        map:
+          kordon001/odom:
+            kordon001/base_footprint:
+              kordon001/base_link:
+                kordon001/caster_wheel_link:
+                  {}
+                kordon001/left_wheel_link:
+                  {}
+                kordon001/lidar_link:
+                  {}
+                kordon001/right_wheel_link:
+                  {}
+          kordon002/odom:
+            kordon002/base_footprint:
+              kordon002/base_link:
+                kordon002/caster_wheel_link:
+                  {}
+                kordon002/left_wheel_link:
+                  {}
+                kordon002/lidar_link:
+                  {}
+                kordon002/right_wheel_link:
+                  {}
+      Update Interval: 0
+      Value: true
     - Alpha: 1
       Class: rviz_default_plugins/RobotModel
       Collision Enabled: false
@@ -58,7 +125,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /robot_description
+        Value: /kordon001/robot_description
       Enabled: true
       Links:
         All Links Enabled: true
@@ -66,31 +133,31 @@ Visualization Manager:
         Expand Link Details: false
         Expand Tree: false
         Link Tree Style: Links in Alphabetic Order
-        base_footprint:
+        kordon001/base_footprint:
           Alpha: 1
           Show Axes: false
           Show Trail: false
-        base_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        caster_wheel_link:
+        kordon001/base_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        left_wheel_link:
+        kordon001/caster_wheel_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        lidar_link:
+        kordon001/left_wheel_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        right_wheel_link:
+        kordon001/lidar_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        kordon001/right_wheel_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -103,45 +170,94 @@ Visualization Manager:
       Update Interval: 0
       Value: true
       Visual Enabled: true
-    - Class: rviz_default_plugins/TF
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Collision Enabled: false
+      Description File: ""
+      Description Source: Topic
+      Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /kordon002/robot_description
       Enabled: true
-      Filter (blacklist): ""
-      Filter (whitelist): ""
-      Frame Timeout: 15
-      Frames:
-        All Enabled: true
-        base_footprint:
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        kordon002/base_footprint:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        kordon002/base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
-        base_link:
+        kordon002/caster_wheel_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
-        caster_wheel_link:
+        kordon002/left_wheel_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
-        left_wheel_link:
+        kordon002/lidar_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
-        lidar_link:
+        kordon002/right_wheel_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
           Value: true
-        odom:
-          Value: true
-        right_wheel_link:
-          Value: true
-      Marker Scale: 1
-      Name: TF
-      Show Arrows: true
-      Show Axes: true
-      Show Names: false
-      Tree:
-        odom:
-          base_footprint:
-            base_link:
-              caster_wheel_link:
-                {}
-              left_wheel_link:
-                {}
-              lidar_link:
-                {}
-              right_wheel_link:
-                {}
+      Mass Properties:
+        Inertia: false
+        Mass: false
+      Name: RobotModel
+      TF Prefix: ""
       Update Interval: 0
+      Value: true
+      Visual Enabled: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 0.2500884532928467
+        Min Value: 0.24956050515174866
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/LaserScan
+      Color: 255; 255; 255
+      Color Transformer: AxisColor
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 0
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: LaserScan
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.10000000149011612
+      Style: Flat Squares
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /kordon001/scan
+      Use Fixed Frame: true
+      Use rainbow: true
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -165,7 +281,7 @@ Visualization Manager:
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.10000000149011612
+      Size (m): 0.009999999776482582
       Style: Flat Squares
       Topic:
         Depth: 5
@@ -173,14 +289,14 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /scan
+        Value: /kordon002/scan
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: odom
+    Fixed Frame: map
     Frame Rate: 30
   Name: root
   Tools:
@@ -223,7 +339,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 14.848237991333008
+      Distance: 14.594836235046387
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -238,7 +354,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.1353986263275146
+      Pitch: 1.3253984451293945
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
       Yaw: 2.91357421875

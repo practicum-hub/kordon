@@ -54,6 +54,7 @@ def generate_launch_description():
             " odom_topic:=/kordon001/ground_truth/odom",
             " scan_topic:=/kordon001/scan",
             " namespace:=/kordon001",
+            " gps_topic:=/kordon001/gps/fix",
         ]
     )
     robot_description002 = Command(
@@ -70,6 +71,7 @@ def generate_launch_description():
             " odom_topic:=/kordon002/ground_truth/odom",
             " scan_topic:=/kordon002/scan",
             " namespace:=/kordon002",
+            " gps_topic:=/kordon002/gps/fix",
         ]
     )
 
@@ -233,6 +235,7 @@ def generate_launch_description():
                 "odom_topic": "/kordon001/ground_truth/odom",
                 "grpc_address": "localhost:50051",
                 "telemetry_rate_hz": 10.0,
+                "gps_topic": "/kordon001/gps/fix",
             }
         ],
     )
@@ -248,6 +251,7 @@ def generate_launch_description():
                 "odom_topic": "/kordon002/ground_truth/odom",
                 "grpc_address": "localhost:50051",
                 "telemetry_rate_hz": 10.0,
+                "gps_topic": "/kordon002/gps/fix",
             }
         ],
     )

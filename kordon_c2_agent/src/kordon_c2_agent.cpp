@@ -11,6 +11,8 @@ KordonC2Agent::KordonC2Agent(const rclcpp::NodeOptions& options)
 	declare_parameter("odom_topic", "diff_drive_controller/odom");
 	declare_parameter("grpc_address", "localhost:50051");
 	declare_parameter("telemetry_rate_hz", 5.0);
+	declare_parameter("gps_topic", "gps/fix");
+	declare_parameter("cmd_vel_topic", "diff_drive_controller/cmd_vel");
 }
 
 // Lifecycles
@@ -19,114 +21,122 @@ CallbackReturn KordonC2Agent::on_configure(const rclcpp_lifecycle::State&)
 	robot_id_ = get_parameter("robot_id").as_string();
 	odom_topic_ = get_parameter("odom_topic").as_string();
 	grpc_address_ = get_parameter("grpc_address").as_string();
+	gps_topic_ = get_parameter("gps_topic").as_string();
+	cmd_vel_topic_ = get_parameter("cmd_vel_topic").as_string();
 
-	grpc_channel_ = grpc::CreateChannel(
-		grpc_address_,
-		grpc::InsecureChannelCredentials()
-	);
+	grpc_channel_ =
+		grpc::CreateChannel(grpc_address_, grpc::InsecureChannelCredentials());
 
-	robot_service_stub_ = c2_highground::v1::RobotService::NewStub(grpc_channel_);
+	robot_service_stub_ =
+		c2_highground::v1::RobotService::NewStub(grpc_channel_);
 
 	c2_highground::v1::RegisterRobotRequest request;
 	request.set_id(robot_id_);
-	
+
 	grpc::ClientContext context;
 	c2_highground::v1::RegisterRobotResponse response;
 
-	const grpc::Status status = robot_service_stub_->RegisterRobot(
-		&context,
-		request,
-		&response
-	);
+	const grpc::Status status =
+		robot_service_stub_->RegisterRobot(&context, request, &response);
 
 	if (!status.ok())
 	{
-		RCLCPP_ERROR(
-			get_logger(),
-			"RegisterRobot failed: code=%d message=%s",
-			static_cast<int>(status.error_code()),
-			status.error_message().c_str()
-		);
+		RCLCPP_ERROR(get_logger(), "RegisterRobot failed: code=%d message=%s",
+					 static_cast<int>(status.error_code()),
+					 status.error_message().c_str());
 
 		return CallbackReturn::FAILURE;
 	}
 
-	RCLCPP_INFO(
-		get_logger(),
-		"Robot registered: status=%d message=%s",
-		static_cast<int>(response.status()),
-		response.message().c_str()
-	);
+	RCLCPP_INFO(get_logger(), "Robot registered: status=%d message=%s",
+				static_cast<int>(response.status()),
+				response.message().c_str());
 
 	odom_sub_ = create_subscription<Odometry>(
-		odom_topic_,
-		10,
-		[this](const Odometry::SharedPtr odometry_msg)
+		odom_topic_, 10, [this](const Odometry::SharedPtr odometry_msg)
 		{ odometry_callback(odometry_msg); });
 
 	// Telemetry
 	telemetry_rate_hz_ = get_parameter("telemetry_rate_hz").as_double();
 
-	const auto telemetry_period = std::chrono::duration<double>(
-		1.0 / telemetry_rate_hz_
-	);
+	const auto telemetry_period =
+		std::chrono::duration<double>(1.0 / telemetry_rate_hz_);
 
 	telemetry_timer_ = create_wall_timer(
 		std::chrono::duration_cast<std::chrono::milliseconds>(telemetry_period),
-		std::bind(&KordonC2Agent::send_telemetry, this)
-	);
+		std::bind(&KordonC2Agent::send_telemetry, this));
 
 	telemetry_timer_->cancel();
 
-	RCLCPP_INFO(
-		get_logger(),
-		"Configured: robot_id=%s odom_topic=%s",
-		robot_id_.c_str(),
-		odom_topic_.c_str()
+	// Geo
+	gps_sub_ = create_subscription<NavSatFix>(
+		gps_topic_,
+		rclcpp::SensorDataQoS(),
+		[this](const NavSatFix::SharedPtr msg)
+		{
+			gps_callback(msg);
+		}
 	);
+
+	// Publishers
+	cmd_vel_pub_ = this->create_publisher<TwistStamped>(
+		cmd_vel_topic_,
+		10
+	);
+
+
+	RCLCPP_INFO(get_logger(), "Configured: robot_id=%s odom_topic=%s",
+				robot_id_.c_str(), odom_topic_.c_str());
 	return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn KordonC2Agent::on_activate(const rclcpp_lifecycle::State&)
+CallbackReturn 
+KordonC2Agent::on_activate(
+	const rclcpp_lifecycle::State&
+)
 {
 	active_ = true;
+	command_stream_running_ = true;
+	command_stream_thread_ = std::thread(&KordonC2Agent::listen_command_stream, this);
 
 	if (telemetry_timer_)
 	{
 		telemetry_timer_->reset();
 	}
-	
-	RCLCPP_INFO(
-		get_logger(),
-		"Activated"
-	);
+
+	RCLCPP_INFO(get_logger(), "Activated");
 	return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn KordonC2Agent::on_deactivate(const rclcpp_lifecycle::State&)
+CallbackReturn
+KordonC2Agent::on_deactivate(const rclcpp_lifecycle::State&)
 {
 	active_ = false;
 
-	if (telemetry_timer_) {
+	if (telemetry_timer_)
+	{
 		telemetry_timer_->cancel();
 	}
-	
-	RCLCPP_INFO(
-		get_logger(),
-		"Deactivated"
-	);
+
+	RCLCPP_INFO(get_logger(), "Deactivated");
 	return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn KordonC2Agent::on_cleanup(const rclcpp_lifecycle::State&)
+CallbackReturn 
+KordonC2Agent::on_cleanup(
+	const rclcpp_lifecycle::State&
+)
 {
 	active_ = false;
 	odom_sub_.reset();
-	
-	RCLCPP_INFO(
-		get_logger(),
-		"Deactivated"
-	);
+	command_stream_running_ = false;
+
+	if (command_stream_thread_.joinable())
+	{
+		command_stream_thread_.join();
+	}
+
+	RCLCPP_INFO(get_logger(), "Deactivated");
 	return CallbackReturn::SUCCESS;
 }
 
@@ -134,30 +144,31 @@ CallbackReturn KordonC2Agent::on_shutdown(const rclcpp_lifecycle::State&)
 {
 	active_ = false;
 	odom_sub_.reset();
-	
-	RCLCPP_INFO(
-		get_logger(),
-		"Deactivated"
-	);
+	gps_sub_.reset();
+	command_stream_running_ = false;
+
+	if (command_stream_thread_.joinable())
+	{
+		command_stream_thread_.join();
+	}
+
+	RCLCPP_INFO(get_logger(), "Deactivated");
 	return CallbackReturn::SUCCESS;
 }
 
 // Callbacks
-void KordonC2Agent::odometry_callback(const Odometry::SharedPtr odom_msg) {
-	if (!active_) 
+void KordonC2Agent::odometry_callback(const Odometry::SharedPtr odom_msg)
+{
+	if (!active_)
 	{
 		return;
 	}
 
-	const auto & position = odom_msg->pose.pose.position;
-	const auto & orientation = odom_msg->pose.pose.orientation;
+	const auto& position = odom_msg->pose.pose.position;
+	const auto& orientation = odom_msg->pose.pose.orientation;
 
-	const double yaw = quaternion_to_yaw(
-		orientation.x,
-		orientation.y,
-		orientation.z,
-		orientation.w
-	);
+	const double yaw = quaternion_to_yaw(orientation.x, orientation.y,
+										 orientation.z, orientation.w);
 
 	{
 		std::lock_guard<std::mutex> lock(odom_mutex_);
@@ -167,23 +178,12 @@ void KordonC2Agent::odometry_callback(const Odometry::SharedPtr odom_msg) {
 		has_odom_ = true;
 	}
 
-	RCLCPP_INFO(
-		get_logger(),
-		"robot_id=%s frame_id=%s x=%.3f y=%.3f yaw=%.3f",
-		robot_id_.c_str(),
-		odom_msg->header.frame_id.c_str(),
-		position.x,
-		position.y,
-		yaw
-	);
+	RCLCPP_INFO(get_logger(), "robot_id=%s frame_id=%s x=%.3f y=%.3f yaw=%.3f",
+				robot_id_.c_str(), odom_msg->header.frame_id.c_str(),
+				position.x, position.y, yaw);
 }
 
-double KordonC2Agent::quaternion_to_yaw(
-	double x,
-	double y,
-	double z,
-	double w
-)
+double KordonC2Agent::quaternion_to_yaw(double x, double y, double z, double w)
 {
 	const double siny_cosp = 2.0 * (w * z + x * y);
 	const double cosy_cosp = 1.0 - 2.0 * (y * y + z * z);
@@ -212,12 +212,8 @@ void KordonC2Agent::send_telemetry()
 
 	if (!robot_service_stub_)
 	{
-		RCLCPP_WARN_THROTTLE(
-			get_logger(),
-			*get_clock(),
-			5000,
-			"RobotService stub is not initialized"
-		);
+		RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+							 "RobotService stub is not initialized");
 		return;
 	}
 
@@ -229,34 +225,218 @@ void KordonC2Agent::send_telemetry()
 	pose->set_y(y);
 	pose->set_yaw(yaw);
 
+	auto* geo = request.mutable_geo_position();
+	geo->set_latitude(last_geo_position_.latitude);
+	geo->set_longitude(last_geo_position_.longitude);
+	geo->set_altitude(last_geo_position_.altitude);
+	geo->set_valid(last_geo_position_.valid);
+
 	grpc::ClientContext context;
 	c2_highground::v1::SendTelemetryResponse response;
 
-	const grpc::Status status = robot_service_stub_->SendTelemetry(
-		&context,
-		request,
-		&response
-	);
+	const grpc::Status status =
+		robot_service_stub_->SendTelemetry(&context, request, &response);
 
 	if (!status.ok())
 	{
-		RCLCPP_WARN_THROTTLE(
-			get_logger(),
-			*get_clock(),
-			5000,
-			"SendTelemetry failed: code=%d message=%s",
-			static_cast<int>(status.error_code()),
-			status.error_message().c_str()
+		RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 5000,
+							 "SendTelemetry failed: code=%d message=%s",
+							 static_cast<int>(status.error_code()),
+							 status.error_message().c_str());
+		return;
+	}
+
+	update_go_to_geo_point();
+
+	RCLCPP_DEBUG(get_logger(), "Telemetry sent: x=%.3f y=%.3f yaw=%.3f", x, y,
+				 yaw);
+}
+
+void KordonC2Agent::gps_callback(
+	const sensor_msgs::msg::NavSatFix::SharedPtr msg)
+{
+	last_geo_position_.latitude = msg->latitude;
+	last_geo_position_.longitude = msg->longitude;
+	last_geo_position_.altitude = msg->altitude;
+	last_geo_position_.valid =
+		msg->status.status >= sensor_msgs::msg::NavSatStatus::STATUS_FIX;
+}
+
+// Linear command stream
+void KordonC2Agent::listen_command_stream()
+{
+	c2_highground::v1::CommandStreamRequest request;
+	request.set_robot_id(robot_id_);
+
+	while (command_stream_running_)
+	{
+		grpc::ClientContext context;
+		
+		std::unique_ptr<grpc::ClientReader<c2_highground::v1::RobotCommand>>
+		reader = robot_service_stub_->CommandStream(&context, request);
+
+		c2_highground::v1::RobotCommand command;
+
+		while (command_stream_running_ && reader->Read(&command))
+		{
+			handle_robot_command(command);
+		}
+
+		const grpc::Status status = reader->Finish();
+
+		if (!status.ok() && command_stream_running_)
+		{
+			RCLCPP_WARN(get_logger(), "CommandStream disconnected: %s",
+				status.error_message().c_str()
+			);
+		}
+
+		if (command_stream_running_)
+		{
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+		}
+	}
+}
+
+void KordonC2Agent::handle_robot_command(
+	const c2_highground::v1::RobotCommand& command
+)
+{
+	if (!cmd_vel_pub_)
+	{
+		return;
+	}
+
+	if (command.has_go_to_geo_point())
+	{
+		start_go_to_geo_point(command.go_to_geo_point());
+		return;
+	}
+
+	if (command.has_velocity())
+	{
+		const auto& velocity = command.velocity();
+
+		TwistStamped msg;
+		msg.header.stamp = now();
+		msg.header.frame_id = "";
+
+		msg.twist.linear.x = velocity.linear_x();
+		msg.twist.angular.z = velocity.angular_z();
+
+		cmd_vel_pub_->publish(msg);
+
+		RCLCPP_INFO(get_logger(), "VelocityCommand: linear_x=%.3f angular_z=%.3f",
+			velocity.linear_x(), velocity.angular_z()
 		);
 		return;
 	}
 
-	RCLCPP_DEBUG(
+	if (command.has_stop())
+	{
+		TwistStamped msg;
+
+		msg.header.stamp = now();
+		msg.header.frame_id = "";
+
+		cmd_vel_pub_->publish(msg);
+
+		RCLCPP_INFO(get_logger(), "StopCommand");
+	}
+}
+
+// Go to pose
+void KordonC2Agent::start_go_to_geo_point(
+	const c2_highground::v1::GoToGeoPoint& target
+)
+{
+	target_latitude_ = target.latitude();
+	target_longitude_ = target.longitude();
+	target_altitude_ = target.altitude();
+	has_geo_target_ = true;
+
+	RCLCPP_INFO(
 		get_logger(),
-		"Telemetry sent: x=%.3f y=%.3f yaw=%.3f",
-		x,
-		y,
-		yaw
+		"GoToGeoPoint target set: lat=%.8f lon=%.8f alt=%.2f",
+		target_latitude_, target_longitude_, target_altitude_
+	);
+}
+
+double KordonC2Agent::normalize_angle(double angle)
+{
+	while (angle > M_PI)
+	{
+		angle -= 2.0 * M_PI;
+	}
+
+	while (angle < -M_PI)
+	{
+		angle += 2.0 * M_PI;
+	}
+
+	return angle;
+}
+
+void KordonC2Agent::update_go_to_geo_point()
+{
+	if (!has_geo_target_ || !last_geo_position_.valid || !cmd_vel_pub_)
+	{
+		return;
+	}
+
+	constexpr double earth_radius_m = 6371000.0;
+
+	const double lat1 = last_geo_position_.latitude * M_PI / 180.0;
+	const double lon1 = last_geo_position_.longitude * M_PI / 180.0;
+	const double lat2 = target_latitude_ * M_PI / 180.0;
+	const double lon2 = target_longitude_ * M_PI / 180.0;
+
+	const double dlat = lat2 - lat1;
+	const double dlon = lon2 - lon1;
+
+	const double x_m = dlon * std::cos((lat1 + lat2) * 0.5) * earth_radius_m;
+	const double y_m = dlat * earth_radius_m;
+
+	const double distance_m = std::hypot(x_m, y_m);
+	const double target_yaw = std::atan2(y_m, x_m);
+	const double yaw_error = normalize_angle(target_yaw - last_yaw_);
+
+	TwistStamped msg;
+	msg.header.stamp = now();
+	msg.header.frame_id = "";
+
+	if (distance_m < 0.8)
+	{
+		has_geo_target_ = false;
+		cmd_vel_pub_->publish(msg);
+
+		RCLCPP_INFO(
+			get_logger(),
+			"GoToGeoPoint reached: distance=%.2f m", distance_m
+		);
+		return;
+	}
+
+	const double angular_z = std::clamp(1.5 * yaw_error, -0.8, 0.8);
+	const double linear_x = std::abs(yaw_error) < 0.7
+		? std::clamp(0.35 * distance_m, 0.0, 0.35)
+		: 0.0;
+
+	msg.twist.linear.x = linear_x;
+	msg.twist.angular.z = angular_z;
+
+	cmd_vel_pub_->publish(msg);
+
+	
+	RCLCPP_INFO_THROTTLE(
+		get_logger(),
+		*get_clock(),
+		1000,
+		"GoToGeoPoint: distance=%.2f yaw_error=%.2f linear=%.2f angular=%.2f",
+		distance_m,
+		yaw_error,
+		linear_x,
+		angular_z
 	);
 }
 
