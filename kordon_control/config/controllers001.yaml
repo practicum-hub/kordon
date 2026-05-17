@@ -1,0 +1,26 @@
+/kordon001/controller_manager:
+  ros__parameters:
+    update_rate: 50
+
+    diff_drive_controller:
+      type: diff_drive_controller/DiffDriveController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+/kordon001/diff_drive_controller:
+  ros__parameters:
+    publish_rate: 50.0
+
+    left_wheel_names: ["kordon001/left_wheel_joint"]
+    right_wheel_names: ["kordon001/right_wheel_joint"]
+
+    wheel_separation: 0.40
+    wheel_radius: 0.1
+
+    base_frame_id: kordon001/base_footprint
+    odom_frame_id: kordon001/odom
+
+    enable_odom_tf: false
+    open_loop: false
+    position_feedback: true

@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="kordon_ros2_control" params="use_gz">
+        <ros2_control name="KordonSystem" type="system">
+            <hardware>
+                <xacro:if value="${use_gz}">
+                    <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+                </xacro:if>
+
+                <xacro:unless value="${use_gz}">
+                    <plugin>
+                        mock_components/GenericSystem
+                    </plugin>
+                </xacro:unless>
+            </hardware>
+
+            <joint name="$(arg prefix)left_wheel_joint">
+                <command_interface name="velocity" />
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="$(arg prefix)right_wheel_joint">
+                <command_interface name="velocity" />
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+        </ros2_control>
+    </xacro:macro>
+</robot>

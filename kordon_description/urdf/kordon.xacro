@@ -1,0 +1,149 @@
+<?xml version="1.0"?>
+
+<robot name="kordon" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- Args -->
+    <xacro:arg name="robot_name" default="kordon001" />
+    <xacro:arg name="prefix" default="001" />
+    <xacro:arg name="namespace" default="" />
+    <xacro:arg name="odom_topic" default="/ground_truth/odom" />
+    <xacro:arg name="scan_topic" default="/scan" />
+
+    <!-- Includes -->
+    <xacro:include filename="properties.xacro" />
+
+    <xacro:arg name="use_gz" default="false" />
+    <xacro:arg name="controllers_file" default="" />
+    <xacro:include filename="ros2_control.xacro" />
+    <xacro:kordon_ros2_control use_gz="$(arg use_gz)" />
+
+    <xacro:include filename="gz.xacro" />
+    <xacro:kordon_gz
+        use_gz="$(arg use_gz)"
+        controllers_file="$(arg controllers_file)"
+        namespace="$(arg namespace)" />
+
+    <!-- Lidar -->
+    <xacro:include filename="lidar.xacro" />
+
+    <!-- Base -->
+    <link name="$(arg prefix)base_footprint" />
+
+    <joint name="$(arg prefix)base_joint" type="fixed">
+        <parent link="$(arg prefix)base_footprint" />
+        <child link="$(arg prefix)base_link" />
+        <origin xyz="0 0 0.15" rpy="0 0 0" />
+    </joint>
+
+    <link name="$(arg prefix)base_link">
+        <xacro:inertial_box mass="${base_mass}" x="${base_length}" y="${base_width}"
+            z="${base_height}">
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </xacro:inertial_box>
+        <visual>
+            <geometry>
+                <box size="${base_length} ${base_width} ${base_height}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="grey" />
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${base_length} ${base_width} ${base_height}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <!--    Left wheel -->
+    <link name="$(arg prefix)left_wheel_link">
+        <xacro:inertial_cylinder mass="${drive_wheel_mass}" radius="${wheel_radius}"
+            length="${wheel_length}">
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </xacro:inertial_cylinder>
+        <visual>
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_length}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="1.57 0 0" />
+            <material name="black" />
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_length}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="1.57 0 0" />
+        </collision>
+    </link>
+
+    <joint name="$(arg prefix)left_wheel_joint" type="continuous">
+        <parent link="$(arg prefix)base_link" />
+        <child link="$(arg prefix)left_wheel_link" />
+        <origin xyz="-${base_length / 2 / 2} ${base_width / 2} -0.05" rpy="0 0 0" />
+        <axis xyz="0 1 0" />
+    </joint>
+
+    <!--    Right wheel -->
+    <link name="$(arg prefix)right_wheel_link">
+        <xacro:inertial_cylinder mass="${drive_wheel_mass}" radius="${wheel_radius}"
+            length="${wheel_length}">
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </xacro:inertial_cylinder>
+        <visual>
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_length}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="-1.57 0 0" />
+            <material name="black" />
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_length}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="-1.57 0 0" />
+        </collision>
+    </link>
+
+    <joint name="$(arg prefix)right_wheel_joint" type="continuous">
+        <parent link="$(arg prefix)base_link" />
+        <child link="$(arg prefix)right_wheel_link" />
+        <origin xyz="-${base_length / 2 / 2} -${base_width / 2} -0.05" rpy="0 0 0" />
+        <axis xyz="0 1 0" />
+    </joint>
+
+    <!--    Caster wheel -->
+    <link name="$(arg prefix)caster_wheel_link">
+        <xacro:inertial_sphere mass="${caster_wheel_mass}" radius="${wheel_radius}">
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </xacro:inertial_sphere>
+        <visual>
+            <geometry>
+                <sphere radius="${wheel_radius}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="black" />
+        </visual>
+        <collision>
+            <geometry>
+                <sphere radius="${wheel_radius}" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </collision>
+    </link>
+
+    <joint name="$(arg prefix)caster_wheel_joint" type="fixed">
+        <parent link="$(arg prefix)base_link" />
+        <child link="$(arg prefix)caster_wheel_link" />
+        <origin xyz="${base_length / 2 / 2} 0 -0.05" rpy="0 0 0" />
+    </joint>
+
+    <gazebo reference="$(arg prefix)caster_wheel_link">
+        <mu1>0.08</mu1>
+        <mu2>0.08</mu2>
+        <kp>100000.0</kp>
+        <kd>10.0</kd>
+        <minDepth>0.002</minDepth>
+        <maxVel>0.5</maxVel>
+        <slip1>0.4</slip1>
+        <slip2>0.4</slip2>
+    </gazebo>
+</robot>
