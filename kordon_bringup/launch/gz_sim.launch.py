@@ -93,7 +93,7 @@ def generate_launch_description():
         package="tf2_ros",
         executable="static_transform_publisher",
         arguments=[
-            "0",
+            "1.0",
             "0",
             "0",
             "0",
@@ -231,11 +231,12 @@ def generate_launch_description():
         namespace="",
         parameters=[
             {
-                "robot_id": "kordon-001",
+                "robot_id": "kordon001",
                 "odom_topic": "/kordon001/ground_truth/odom",
                 "grpc_address": "localhost:50051",
                 "telemetry_rate_hz": 10.0,
                 "gps_topic": "/kordon001/gps/fix",
+                "geo_goal_topic": "/kordon001/navigation/go_to_geo_point",
             }
         ],
     )
@@ -247,11 +248,12 @@ def generate_launch_description():
         namespace="",
         parameters=[
             {
-                "robot_id": "kordon-002",
+                "robot_id": "kordon002",
                 "odom_topic": "/kordon002/ground_truth/odom",
                 "grpc_address": "localhost:50051",
                 "telemetry_rate_hz": 10.0,
                 "gps_topic": "/kordon002/gps/fix",
+                "geo_goal_topic": "/kordon002/navigation/go_to_geo_point",
             }
         ],
     )

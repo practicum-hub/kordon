@@ -4,11 +4,13 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
+#include <kordon_interfaces/msg/geo_point_goal.hpp>
 #include <thread>
 #include <atomic>
 
 #include <grpcpp/grpcpp.h>
 #include <v1/robot.grpc.pb.h>
+
 
 namespace kordon_c2_agent
 {
@@ -18,6 +20,7 @@ using CallbackReturn =
 using Odometry = nav_msgs::msg::Odometry;
 using NavSatFix = sensor_msgs::msg::NavSatFix;
 using TwistStamped = geometry_msgs::msg::TwistStamped;
+using GeoPointGoal = kordon_interfaces::msg::GeoPointGoal;
 
 class KordonC2Agent final : public rclcpp_lifecycle::LifecycleNode
 {
@@ -95,15 +98,8 @@ private:
 	void listen_command_stream();
 	void handle_robot_command(const c2_highground::v1::RobotCommand& command);
 
-private:
-	bool has_geo_target_{false};
-	double target_latitude_{0.0};
-	double target_longitude_{0.0};
-	double target_altitude_{0.0};
-
-	void start_go_to_geo_point(const c2_highground::v1::GoToGeoPoint& target);
-	void update_go_to_geo_point();
-	static double normalize_angle(double angle);
+	std::string geo_goal_topic_;
+	rclcpp::Publisher<GeoPointGoal>::SharedPtr geo_goal_pub_;
 };
 
 } // namespace kordon_c2_agent

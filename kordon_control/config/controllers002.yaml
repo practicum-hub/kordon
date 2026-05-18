@@ -18,9 +18,9 @@
     wheel_separation: 0.40
     wheel_radius: 0.1
 
-    base_frame_id: kordon002/base_footprint
-    odom_frame_id: kordon002/odom
+    base_frame_id: base_footprint
+    odom_frame_id: odom
 
-    enable_odom_tf: false
+    enable_odom_tf: true
     open_loop: false
     position_feedback: true

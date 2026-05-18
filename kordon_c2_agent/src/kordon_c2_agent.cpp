@@ -13,6 +13,7 @@ KordonC2Agent::KordonC2Agent(const rclcpp::NodeOptions& options)
 	declare_parameter("telemetry_rate_hz", 5.0);
 	declare_parameter("gps_topic", "gps/fix");
 	declare_parameter("cmd_vel_topic", "diff_drive_controller/cmd_vel");
+	declare_parameter("geo_goal_topic", "navigation/go_to_geo_point");
 }
 
 // Lifecycles
@@ -23,6 +24,7 @@ CallbackReturn KordonC2Agent::on_configure(const rclcpp_lifecycle::State&)
 	grpc_address_ = get_parameter("grpc_address").as_string();
 	gps_topic_ = get_parameter("gps_topic").as_string();
 	cmd_vel_topic_ = get_parameter("cmd_vel_topic").as_string();
+	geo_goal_topic_ = get_parameter("geo_goal_topic").as_string();
 
 	grpc_channel_ =
 		grpc::CreateChannel(grpc_address_, grpc::InsecureChannelCredentials());
@@ -83,6 +85,9 @@ CallbackReturn KordonC2Agent::on_configure(const rclcpp_lifecycle::State&)
 		cmd_vel_topic_,
 		10
 	);
+
+	geo_goal_pub_ = create_publisher<GeoPointGoal>(geo_goal_topic_, 10);
+
 
 
 	RCLCPP_INFO(get_logger(), "Configured: robot_id=%s odom_topic=%s",
@@ -246,8 +251,6 @@ void KordonC2Agent::send_telemetry()
 		return;
 	}
 
-	update_go_to_geo_point();
-
 	RCLCPP_DEBUG(get_logger(), "Telemetry sent: x=%.3f y=%.3f yaw=%.3f", x, y,
 				 yaw);
 }
@@ -302,14 +305,27 @@ void KordonC2Agent::handle_robot_command(
 	const c2_highground::v1::RobotCommand& command
 )
 {
-	if (!cmd_vel_pub_)
-	{
-		return;
-	}
-
 	if (command.has_go_to_geo_point())
 	{
-		start_go_to_geo_point(command.go_to_geo_point());
+		const auto& target = command.go_to_geo_point();
+
+		GeoPointGoal msg;
+		msg.command_id = command.command_id();
+		msg.latitude = target.latitude();
+		msg.longitude = target.longitude();
+		msg.altitude = target.altitude();
+
+		geo_goal_pub_->publish(msg);
+
+		RCLCPP_INFO(
+			get_logger(),
+			"Published GeoPointGoal: command_id=%s lat=%.8f lon=%.8f alt=%.2f",
+			msg.command_id.c_str(),
+			msg.latitude,
+			msg.longitude,
+			msg.altitude
+		);
+
 		return;
 	}
 
@@ -343,101 +359,6 @@ void KordonC2Agent::handle_robot_command(
 
 		RCLCPP_INFO(get_logger(), "StopCommand");
 	}
-}
-
-// Go to pose
-void KordonC2Agent::start_go_to_geo_point(
-	const c2_highground::v1::GoToGeoPoint& target
-)
-{
-	target_latitude_ = target.latitude();
-	target_longitude_ = target.longitude();
-	target_altitude_ = target.altitude();
-	has_geo_target_ = true;
-
-	RCLCPP_INFO(
-		get_logger(),
-		"GoToGeoPoint target set: lat=%.8f lon=%.8f alt=%.2f",
-		target_latitude_, target_longitude_, target_altitude_
-	);
-}
-
-double KordonC2Agent::normalize_angle(double angle)
-{
-	while (angle > M_PI)
-	{
-		angle -= 2.0 * M_PI;
-	}
-
-	while (angle < -M_PI)
-	{
-		angle += 2.0 * M_PI;
-	}
-
-	return angle;
-}
-
-void KordonC2Agent::update_go_to_geo_point()
-{
-	if (!has_geo_target_ || !last_geo_position_.valid || !cmd_vel_pub_)
-	{
-		return;
-	}
-
-	constexpr double earth_radius_m = 6371000.0;
-
-	const double lat1 = last_geo_position_.latitude * M_PI / 180.0;
-	const double lon1 = last_geo_position_.longitude * M_PI / 180.0;
-	const double lat2 = target_latitude_ * M_PI / 180.0;
-	const double lon2 = target_longitude_ * M_PI / 180.0;
-
-	const double dlat = lat2 - lat1;
-	const double dlon = lon2 - lon1;
-
-	const double x_m = dlon * std::cos((lat1 + lat2) * 0.5) * earth_radius_m;
-	const double y_m = dlat * earth_radius_m;
-
-	const double distance_m = std::hypot(x_m, y_m);
-	const double target_yaw = std::atan2(y_m, x_m);
-	const double yaw_error = normalize_angle(target_yaw - last_yaw_);
-
-	TwistStamped msg;
-	msg.header.stamp = now();
-	msg.header.frame_id = "";
-
-	if (distance_m < 0.8)
-	{
-		has_geo_target_ = false;
-		cmd_vel_pub_->publish(msg);
-
-		RCLCPP_INFO(
-			get_logger(),
-			"GoToGeoPoint reached: distance=%.2f m", distance_m
-		);
-		return;
-	}
-
-	const double angular_z = std::clamp(1.5 * yaw_error, -0.8, 0.8);
-	const double linear_x = std::abs(yaw_error) < 0.7
-		? std::clamp(0.35 * distance_m, 0.0, 0.35)
-		: 0.0;
-
-	msg.twist.linear.x = linear_x;
-	msg.twist.angular.z = angular_z;
-
-	cmd_vel_pub_->publish(msg);
-
-	
-	RCLCPP_INFO_THROTTLE(
-		get_logger(),
-		*get_clock(),
-		1000,
-		"GoToGeoPoint: distance=%.2f yaw_error=%.2f linear=%.2f angular=%.2f",
-		distance_m,
-		yaw_error,
-		linear_x,
-		angular_z
-	);
 }
 
 } // namespace kordon_c2_agent

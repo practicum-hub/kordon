@@ -12,6 +12,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(kordon_interfaces REQUIRED)
 
 find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
@@ -92,6 +93,7 @@ ament_target_dependencies(kordon_c2_agent_component
   rclcpp_components
   nav_msgs
   sensor_msgs
+  kordon_interfaces
 )
 
 target_link_libraries(kordon_c2_agent_component
@@ -124,6 +126,7 @@ ament_export_dependencies(
   rclcpp_lifecycle
   rclcpp_components
   nav_msgs
+  kordon_interfaces
 )
 
 ament_package()
