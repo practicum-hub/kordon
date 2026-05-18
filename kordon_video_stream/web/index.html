@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kordon WebRTC Stream</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --card: #111827;
+        --text: #e5e7eb;
+        --accent: #22c55e;
+      }
+      body {
+        margin: 0;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top left, #1f2937, var(--bg));
+        color: var(--text);
+      }
+      .container {
+        max-width: 980px;
+        margin: 32px auto;
+        padding: 0 16px;
+      }
+      .card {
+        background: color-mix(in srgb, var(--card) 92%, black);
+        border: 1px solid #334155;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      h1 {
+        margin-top: 0;
+      }
+      code {
+        color: var(--accent);
+      }
+      iframe, video {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: 0;
+        border-radius: 10px;
+        background: black;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Kordon Camera Stream</h1>
+
+      <div class="card">
+        <h2>Option 1: iframe (quickest)</h2>
+        <p>Works out of the box with MediaMTX built-in WebRTC page.</p>
+        <iframe src="http://127.0.0.1:8889/kordon001?controls=true&muted=true&autoplay=true"></iframe>
+      </div>
+
+      <div class="card">
+        <h2>Option 2: direct WHEP in your app</h2>
+        <p>
+          Put <code>reader.js</code> from MediaMTX docs next to this file and uncomment
+          the script below.
+        </p>
+        <video id="whepVideo" controls muted autoplay playsinline></video>
+      </div>
+    </div>
+
+    <!--
+    <script defer src="./reader.js"></script>
+    <script>
+      let reader = null;
+      window.addEventListener("load", () => {
+        reader = new MediaMTXWebRTCReader({
+          url: "http://127.0.0.1:8889/kordon001/whep",
+          onError: (err) => console.error(err),
+          onTrack: (evt) => {
+            document.getElementById("whepVideo").srcObject = evt.streams[0];
+          },
+        });
+      });
+      window.addEventListener("beforeunload", () => {
+        if (reader !== null) {
+          reader.close();
+        }
+      });
+    </script>
+    -->
+  </body>
+</html>

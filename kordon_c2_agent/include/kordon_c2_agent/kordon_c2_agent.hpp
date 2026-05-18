@@ -2,11 +2,14 @@
 
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
 #include <kordon_interfaces/msg/geo_point_goal.hpp>
 #include <thread>
 #include <atomic>
+#include <cstdint>
+#include <vector>
 
 #include <grpcpp/grpcpp.h>
 #include <v1/robot.grpc.pb.h>
@@ -19,6 +22,7 @@ using CallbackReturn =
 	rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 using Odometry = nav_msgs::msg::Odometry;
 using NavSatFix = sensor_msgs::msg::NavSatFix;
+using LaserScan = sensor_msgs::msg::LaserScan;
 using TwistStamped = geometry_msgs::msg::TwistStamped;
 using GeoPointGoal = kordon_interfaces::msg::GeoPointGoal;
 
@@ -72,8 +76,10 @@ private:
 
 	// GPS Telemetry
 	rclcpp::Subscription<NavSatFix>::SharedPtr gps_sub_;
+	rclcpp::Subscription<LaserScan>::SharedPtr scan_sub_;
 
 	std::string gps_topic_;
+	std::string scan_topic_;
 
 	struct GeoPositionState
 	{
@@ -86,6 +92,23 @@ private:
 	GeoPositionState last_geo_position_;
 
 	void gps_callback(const NavSatFix::SharedPtr msg);
+
+	struct LidarState
+	{
+		std::string frame_id;
+		double angle_min{0.0};
+		double angle_increment{0.0};
+		double range_min{0.0};
+		double range_max{0.0};
+		std::vector<float> ranges;
+		int64_t stamp_unix_ms{0};
+		bool valid{false};
+	};
+
+	LidarState last_lidar_;
+	std::mutex lidar_mutex_;
+
+	void scan_callback(const LaserScan::SharedPtr msg);
 
 	// Nav
 	std::string cmd_vel_topic_;

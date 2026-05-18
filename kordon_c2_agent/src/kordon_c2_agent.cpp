@@ -12,6 +12,7 @@ KordonC2Agent::KordonC2Agent(const rclcpp::NodeOptions& options)
 	declare_parameter("grpc_address", "localhost:50051");
 	declare_parameter("telemetry_rate_hz", 5.0);
 	declare_parameter("gps_topic", "gps/fix");
+	declare_parameter("scan_topic", "scan");
 	declare_parameter("cmd_vel_topic", "diff_drive_controller/cmd_vel");
 	declare_parameter("geo_goal_topic", "navigation/go_to_geo_point");
 }
@@ -23,6 +24,7 @@ CallbackReturn KordonC2Agent::on_configure(const rclcpp_lifecycle::State&)
 	odom_topic_ = get_parameter("odom_topic").as_string();
 	grpc_address_ = get_parameter("grpc_address").as_string();
 	gps_topic_ = get_parameter("gps_topic").as_string();
+	scan_topic_ = get_parameter("scan_topic").as_string();
 	cmd_vel_topic_ = get_parameter("cmd_vel_topic").as_string();
 	geo_goal_topic_ = get_parameter("geo_goal_topic").as_string();
 
@@ -77,6 +79,15 @@ CallbackReturn KordonC2Agent::on_configure(const rclcpp_lifecycle::State&)
 		[this](const NavSatFix::SharedPtr msg)
 		{
 			gps_callback(msg);
+		}
+	);
+
+	scan_sub_ = create_subscription<LaserScan>(
+		scan_topic_,
+		rclcpp::SensorDataQoS(),
+		[this](const LaserScan::SharedPtr msg)
+		{
+			scan_callback(msg);
 		}
 	);
 
@@ -150,6 +161,7 @@ CallbackReturn KordonC2Agent::on_shutdown(const rclcpp_lifecycle::State&)
 	active_ = false;
 	odom_sub_.reset();
 	gps_sub_.reset();
+	scan_sub_.reset();
 	command_stream_running_ = false;
 
 	if (command_stream_thread_.joinable())
@@ -236,6 +248,24 @@ void KordonC2Agent::send_telemetry()
 	geo->set_altitude(last_geo_position_.altitude);
 	geo->set_valid(last_geo_position_.valid);
 
+	{
+		std::lock_guard<std::mutex> lock(lidar_mutex_);
+		if (last_lidar_.valid)
+		{
+			auto* lidar = request.mutable_lidar_scan();
+			lidar->set_frame_id(last_lidar_.frame_id);
+			lidar->set_angle_min(last_lidar_.angle_min);
+			lidar->set_angle_increment(last_lidar_.angle_increment);
+			lidar->set_range_min(last_lidar_.range_min);
+			lidar->set_range_max(last_lidar_.range_max);
+			lidar->set_stamp_unix_ms(last_lidar_.stamp_unix_ms);
+			for (const float r : last_lidar_.ranges)
+			{
+				lidar->add_ranges(r);
+			}
+		}
+	}
+
 	grpc::ClientContext context;
 	c2_highground::v1::SendTelemetryResponse response;
 
@@ -263,6 +293,22 @@ void KordonC2Agent::gps_callback(
 	last_geo_position_.altitude = msg->altitude;
 	last_geo_position_.valid =
 		msg->status.status >= sensor_msgs::msg::NavSatStatus::STATUS_FIX;
+}
+
+void KordonC2Agent::scan_callback(const LaserScan::SharedPtr msg)
+{
+	std::lock_guard<std::mutex> lock(lidar_mutex_);
+
+	last_lidar_.frame_id = msg->header.frame_id;
+	last_lidar_.angle_min = msg->angle_min;
+	last_lidar_.angle_increment = msg->angle_increment;
+	last_lidar_.range_min = msg->range_min;
+	last_lidar_.range_max = msg->range_max;
+	last_lidar_.ranges = msg->ranges;
+	last_lidar_.stamp_unix_ms =
+		static_cast<int64_t>(msg->header.stamp.sec) * 1000LL +
+		static_cast<int64_t>(msg->header.stamp.nanosec / 1000000U);
+	last_lidar_.valid = true;
 }
 
 // Linear command stream

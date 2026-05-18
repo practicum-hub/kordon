@@ -1,12 +1,15 @@
 from launch import LaunchDescription
 from launch.actions import (
+    DeclareLaunchArgument,
     IncludeLaunchDescription,
 )
+from launch.conditions import IfCondition
 from launch.launch_description_sources import (
     PythonLaunchDescriptionSource,
 )
 from launch.substitutions import (
     Command,
+    LaunchConfiguration,
     PathJoinSubstitution,
 )
 from launch_ros.actions import LifecycleNode, Node
@@ -21,6 +24,9 @@ from lifecycle_msgs.msg import Transition
 
 
 def generate_launch_description():
+    enable_video_streaming = LaunchConfiguration("enable_video_streaming")
+    mediamtx_host = LaunchConfiguration("mediamtx_host")
+
     bringup_pkg = FindPackageShare("kordon_bringup")
     control_pkg = FindPackageShare("kordon_control")
     description_pkg = FindPackageShare("kordon_description")
@@ -53,6 +59,7 @@ def generate_launch_description():
             " prefix:=kordon001/",
             " odom_topic:=/kordon001/ground_truth/odom",
             " scan_topic:=/kordon001/scan",
+            " camera_topic:=/kordon001/camera/image_raw",
             " namespace:=/kordon001",
             " gps_topic:=/kordon001/gps/fix",
         ]
@@ -70,6 +77,7 @@ def generate_launch_description():
             " prefix:=kordon002/",
             " odom_topic:=/kordon002/ground_truth/odom",
             " scan_topic:=/kordon002/scan",
+            " camera_topic:=/kordon002/camera/image_raw",
             " namespace:=/kordon002",
             " gps_topic:=/kordon002/gps/fix",
         ]
@@ -236,6 +244,7 @@ def generate_launch_description():
                 "grpc_address": "localhost:50051",
                 "telemetry_rate_hz": 10.0,
                 "gps_topic": "/kordon001/gps/fix",
+                "scan_topic": "/kordon001/scan",
                 "geo_goal_topic": "/kordon001/navigation/go_to_geo_point",
             }
         ],
@@ -253,6 +262,7 @@ def generate_launch_description():
                 "grpc_address": "localhost:50051",
                 "telemetry_rate_hz": 10.0,
                 "gps_topic": "/kordon002/gps/fix",
+                "scan_topic": "/kordon002/scan",
                 "geo_goal_topic": "/kordon002/navigation/go_to_geo_point",
             }
         ],
@@ -263,8 +273,52 @@ def generate_launch_description():
         *lifecycle_autostart(kordon002_c2_agent),
     ]
 
+    camera_stream_kordon001 = Node(
+        package="kordon_video_stream",
+        executable="camera_rtsp_publisher_node",
+        name="kordon001_camera_rtsp_publisher",
+        output="screen",
+        condition=IfCondition(enable_video_streaming),
+        parameters=[
+            {
+                "input_topic": "/kordon001/camera/image_raw",
+                "rtsp_url": ["rtsp://", mediamtx_host, ":8554/kordon001"],
+                "bitrate_kbps": 2500,
+                "keyint": 30,
+                "fps": 30.0,
+            }
+        ],
+    )
+
+    camera_stream_kordon002 = Node(
+        package="kordon_video_stream",
+        executable="camera_rtsp_publisher_node",
+        name="kordon002_camera_rtsp_publisher",
+        output="screen",
+        condition=IfCondition(enable_video_streaming),
+        parameters=[
+            {
+                "input_topic": "/kordon002/camera/image_raw",
+                "rtsp_url": ["rtsp://", mediamtx_host, ":8554/kordon002"],
+                "bitrate_kbps": 2500,
+                "keyint": 30,
+                "fps": 30.0,
+            }
+        ],
+    )
+
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "enable_video_streaming",
+                default_value="true",
+                description="Start camera->H264->RTSP publishers for both robots",
+            ),
+            DeclareLaunchArgument(
+                "mediamtx_host",
+                default_value="127.0.0.1",
+                description="MediaMTX host/IP for RTSP ingest",
+            ),
             gz_sim,
             robot_state_publisher001,
             robot_state_publisher002,
@@ -280,6 +334,8 @@ def generate_launch_description():
             rviz2,
             kordon001_c2_agent,
             kordon002_c2_agent,
+            camera_stream_kordon001,
+            camera_stream_kordon002,
             *c2_lifecycle,
         ]
     )

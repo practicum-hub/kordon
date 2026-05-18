@@ -7,6 +7,7 @@
     <xacro:arg name="namespace" default="" />
     <xacro:arg name="odom_topic" default="/ground_truth/odom" />
     <xacro:arg name="scan_topic" default="/scan" />
+    <xacro:arg name="camera_topic" default="/camera/image_raw" />
 
     <!-- Includes -->
     <xacro:include filename="properties.xacro" />
@@ -27,6 +28,9 @@
 
     <!-- GPS -->
     <xacro:include filename="gps.xacro" />
+
+    <!-- Camera -->
+    <xacro:include filename="camera.xacro" />
 
     <!-- Base -->
     <link name="$(arg prefix)base_footprint" />

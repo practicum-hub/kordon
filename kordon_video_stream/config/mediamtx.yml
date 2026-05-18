@@ -1,0 +1,21 @@
+# Minimal MediaMTX config for ROS2 camera streaming.
+# RTSP ingest from ROS2 node:
+#   rtsp://<server-ip>:8554/kordon001
+# WebRTC playback in browser:
+#   http://<server-ip>:8889/kordon001
+# WHEP endpoint:
+#   http://<server-ip>:8889/kordon001/whep
+
+rtsp: yes
+rtspAddress: :8554
+
+webrtc: yes
+webrtcAddress: :8889
+
+# For local/LAN use. If clients are remote behind NAT, set public host/IP here.
+webrtcAdditionalHosts:
+  - 127.0.0.1
+
+paths:
+  all_others:
+    source: publisher
